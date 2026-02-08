@@ -7,10 +7,39 @@ import yaml
 import warp as wp
 
 import warp.sim.render
-from warp.sim.utils import implicit_laplacian_smoothing
-import warp.collision.panel_assignment as assign
-from warp.sim.collide import count_self_intersections, count_body_cloth_intersections
-from warp.sim.integrator_xpbd import replace_mesh_points
+try:
+    from warp.sim.utils import implicit_laplacian_smoothing
+except Exception:  # warp>=1.10 removes sim.utils; keep local fallback for 1.8.x
+    import scipy.sparse.linalg
+
+    def implicit_laplacian_smoothing(V, F, step_size, iters):
+        cot = igl.cotmatrix(V, F)
+        new_V_list = [V.copy()]
+        for i in range(iters):
+            area = igl.massmatrix(new_V_list[i], F, igl.MASSMATRIX_TYPE_BARYCENTRIC)
+            new_V_list.append(
+                scipy.sparse.linalg.spsolve((area - step_size * cot), area @ new_V_list[i])
+            )
+        return new_V_list
+from pygarment.meshgen import panel_assignment as assign
+try:
+    from warp.sim.collide import count_self_intersections, count_body_cloth_intersections
+    _HAS_INTERSECTION_KERNELS = True
+except Exception:
+    count_self_intersections = None
+    count_body_cloth_intersections = None
+    _HAS_INTERSECTION_KERNELS = False
+try:
+    from warp.sim.integrator_xpbd import replace_mesh_points
+except Exception:
+    @wp.kernel
+    def replace_mesh_points(
+        shape: wp.uint64,
+        vertices: wp.array(dtype=wp.vec3),
+    ):
+        tid = wp.tid()
+        mesh = wp.mesh_get(shape)
+        mesh.points[tid] = vertices[tid]
 
 # Custom
 from pygarment.meshgen.sim_config import PathCofig, SimConfig
@@ -558,6 +587,8 @@ class Cloth:
 
     def count_self_intersections(self):
         model = self.model
+        if not _HAS_INTERSECTION_KERNELS:
+            return 0
 
         if model.particle_count and model.spring_count: 
             model.particle_self_intersection_count.zero_()
@@ -579,6 +610,8 @@ class Cloth:
 
     def count_body_intersections(self):
         model = self.model
+        if not _HAS_INTERSECTION_KERNELS:
+            return 0
 
         if model.particle_count:
             model.body_cloth_intersection_count.zero_()

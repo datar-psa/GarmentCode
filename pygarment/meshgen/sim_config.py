@@ -65,7 +65,14 @@ class PathCofig:
 
         self.in_body_obj = self.bodies_path / f'{self._body_name}.obj'
         self.in_g_spec = self.input / f'{self.in_tag}_specification.json'
-        self.body_seg = Path(self._system['bodies_default_path']) / ('ggg_body_segmentation.json' if not self.use_smpl_seg else 'smpl_vert_segmentation.json')
+        if self.use_smpl_seg:
+            self.body_seg = Path(self._system['bodies_default_path']) / 'smpl_vert_segmentation.json'
+        else:
+            body_seg_candidate = self.bodies_path / f'{self._body_name}_segmentation.json'
+            if body_seg_candidate.exists():
+                self.body_seg = body_seg_candidate
+            else:
+                self.body_seg = Path(self._system['bodies_default_path']) / 'ggg_body_segmentation.json'
         self.in_design_params = self.input / 'design_params.yaml'
 
     def _update_boxmesh_paths(self):
@@ -282,4 +289,3 @@ class SimConfig:
         if name in sim_props:
             return sim_props[name]
         return default_value
-
