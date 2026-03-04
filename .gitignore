@@ -31,3 +31,8 @@ output*
 
 # Nicegui
 .nicegui
+
+# Generated body files (created by run_sample.py)
+assets/bodies/*.obj
+assets/bodies/*.yaml
+assets/bodies/*_segmentation.json
