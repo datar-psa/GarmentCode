@@ -393,6 +393,7 @@ class Edge:
             * vertices: panel corner vertices
     """
     def __init__(self, edge, vertices, mesh_resolution):
+        self.name = edge.get('name') or edge.get('id') or edge.get('label') or ''
         self.endpoints = vertices[edge['endpoints']]
         self.stitch_ref = None
         self.n_edge_verts = -1
